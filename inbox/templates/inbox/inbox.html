@@ -1,0 +1,247 @@
+{% extends "layouts/d.html" %} {% load static %} {% block content %}
+
+<inbox
+  class="grid grid-cols-5 sm:grid-cols-4 h-[calc(100vh-8rem)] md:h-[calc(100vh-12rem)] shadow-2xl rounded-2xl mx-1 lg:mx-10 xl:mx-48"
+>
+  <!-- NEW MESSAGE MODAL -->
+  <div
+    x-data="{ modal_open: false }"
+    class="col-span-1 bg-slate-10 rounded-l-2xl p-2 overflow-y-auto"
+  >
+    <div class="p-0 sm:p-4 mb-3 sticky top-0 z-10">
+      <a
+        @click="modal_open = true"
+        class="flex cursor-pointer items-center justify-center h-14 sm:h-16 gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full"
+      >
+        <img
+          class="h-6 m-auto lg:m-0"
+          src="https://img.icons8.com/external-anggara-glyph-anggara-putra/32/ffffff/external-edit-user-interface-anggara-glyph-anggara-putra.png"
+        />
+        <div class="hidden lg:block text-white rounded-full font-bold">
+          New Message
+        </div>
+      </a>
+    </div>
+
+    <div
+      x-show="modal_open"
+      class="relative z-10"
+      aria-labelledby="modal-title"
+      role="dialog"
+      aria-modal="true"
+      style="display: none"
+    >
+      <div
+        class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+      ></div>
+      <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+        <div
+          class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0"
+        >
+          <div
+            class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg"
+          >
+            <div
+              @click.away="modal_open = false"
+              class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4"
+            >
+              <h3 class="text-xl font-bold mb-4" id="modal-title">
+                New Message
+              </h3>
+              <div id="new-message">
+                <div class="flex gap-2 items-center">
+                  <span class="font-bold">To:</span>
+                  <input
+                    class="p-3 w-screen lg:full"
+                    placeholder="Search user ..."
+                    type="text"
+                    name="search_user"
+                    hx-get="/inbox/search_users/"
+                    hx-trigger="keyup changed"
+                    hx-target="#search-results"
+                    hx-swap="innerHTML"
+                  />
+                </div>
+
+                <div id="search-results" class="block h-60 overflow-y-auto">
+                  <ul id="user-list" class="mt-2">
+                    {% for user in users %}
+                    <li>
+                      <a
+                        class="flex items-center gap-1 hover:bg-zinc-100 rounded-lg p-2 cursor-pointer"
+                        hx-get="{% url 'inbox-newmessage' user.id %}"
+                        hx-target="#new-message"
+                        hx-swap="innerHTML"
+                      >
+                        <img
+                          class="w-10 h-10 object-cover rounded-full mr-1"
+                          src="{{user.profile.avatar}}"
+                        />
+                        <div class="font-bold">
+                          {{user.profile.name}}
+                          <span class="text-xs font-normal text-zinc-500"
+                            >@{{user.username}}</span
+                          >
+                        </div>
+                      </a>
+                    </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MY CONVERSATION -->
+    <ul id="conversations-list" class="flex flex-col gap-1 divide-y mt-2">
+      {% for c in my_conversations %}
+      <li
+        class="{% if conversation == c %}bg-zinc-200{% endif %} rounded-full sm:rounded-lg relative mt-2 sm:mt-0"
+      >
+        <a
+          href="{% url 'inbox' c.id %}"
+          class="flex items-center justify-center lg:justify-normal gap-1 hover:bg-zinc-200 rounded-full sm:rounded-lg p-2 sm:p-4 cursor-pointer"
+        >
+          {% for participant in c.participants.all %} {% if participant != request.user %}
+          <img
+            src="{{participant.profile.avatar}}"
+            class="w-10 h-10 lg:w-10 lg:h-10 rounded-full object-cover"
+            alt=""
+          />
+          <div class="hidden lg:block font-bold ml-1">
+            {{participant.profile.name}}
+          </div>
+          {% endif %} {% endfor %}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div
+      class="mt-2 w-full mb-4 flex items-center bg-amber-300 text-white p-3 rounded-lg"
+      role="alert"
+    >
+      <svg class="w-8 h-8 mr-2" viewBox="0 0 512 512">
+        <path
+          d="M315.27,33,96,304H224L192.49,477.23a2.36,2.36,0,0,0,2.33,2.77h0a2.36,2.36,0,0,0,1.89-.95L416,208H288L319.66,34.75A2.45,2.45,0,0,0,317.22,32h0A2.42,2.42,0,0,0,315.27,33Z"
+          style="
+            fill: none;
+            stroke: #ffffff;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 32px;
+          "
+          fill="white"
+        ></path>
+      </svg>
+      <div class="text-sm">
+        You need to verfiy your email to receive email notifications. Check your
+        inbox.
+      </div>
+    </div>
+  </div>
+
+  <!-- CONVERSATION -->
+  <div
+    id="conversation"
+    class="col-span-4 sm:col-span-3 flex flex-col bg-white rounded-r-2xl pt-10 relative overflow-y-auto"
+    _="on load wait for 5ms then remove .opacity-0"
+  >
+    {% if conversation %}
+
+    <div class="text-center flex flex-col items-center">
+      {% for participant in conversation.participants.all %} {% if participant != request.user %}
+      <a href="{% url 'user-profile' participant.username %}">
+        <img
+          src="{{participant.profile.avatar}}"
+          class="w-20 h-20 rounded-full object-cover mb-3"
+          alt=""
+        />
+      </a>
+      <div class="text-center max-w-md">
+        <h1 class="text-lg">{{participant.profile.name}}</h1>
+        <div class="text-gray-500 mb-3 -mt-5 text-sm">
+          @{{participant.username}}
+        </div>
+      </div>
+      {% endif %} {% endfor %}
+    </div>
+
+    <ul
+      id="inbox_messages"
+      class="flex flex-col justify-end grow gap-5 p-4 sm:p-10 pb-0"
+    >
+      {% for message in conversation.messages.all reversed %}
+      <li>
+        <div class="flex flex-col md:flex-row gap-1 md:gap-5">
+          <a
+            href="{% url 'user-profile' message.sender.username %}"
+            class="contents"
+          >
+            <img
+              src="{{message.sender.profile.avatar}}"
+              class="w-10 h-10 rounded-full object-cover"
+              alt=""
+            />
+          </a>
+          <div class="bg-white p-4 rounded-xl w-full border-2 border-gray-200">
+            <div
+              class="flex flex-col md:flex-row justify-between text-xs pb-3 text-zinc-500"
+            >
+              <div>
+                <span class="font-bold text-base text-black mr-1"
+                  >{{message.sender.profile.name}}</span
+                >@{{message.sender.username}}
+              </div>
+              <div>{{message.created}} ({{message.created|timesince}})</div>
+            </div>
+            <div>{{ message.body }}</div>
+          </div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <!-- REPLY BUTTON -->
+    <div class="sticky bottom-0 z-1 pl-4 sm:pl-10 pt-6 pb-10 flex bg-white">
+      <a
+        href=""
+        class="flex cursor-pointer items-center gap-2 bg-gray-700 hover:bg-indigo-600 text-white rounded-full p-3.5"
+      >
+        <img
+          src="https://img.icons8.com/material/96/ffffff/reply-arrow--v1.png"
+          class="h-5"
+          alt=""
+        />
+        <div class="text-white rounded-full">Reply</div>
+      </a>
+    </div>
+
+    {% else %}
+
+    <div
+      class="h-full flex items-center justify-center text-gray-500 -mt-6 text-center p-10"
+    >
+      Select a conversation or create a new message
+    </div>
+
+    {% endif %}
+  </div>
+</inbox>
+
+<!-- SCRIPTS -->
+<script>
+  function scrollToBottom() {
+    const container = document.getElementById("conversation");
+    container.scrollTop = container.scrollHeight;
+  }
+
+  window.onload = function () {
+    scrollToBottom();
+  };
+</script>
+
+{% endblock %}
